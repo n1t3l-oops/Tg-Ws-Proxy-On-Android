@@ -11,6 +11,7 @@ object Config {
         var s = prefs.getString(KEY_SECRET, null)
         if (s == null || s.length != 32) {
             val b = ByteArray(16)
+            SecureRandom().nextBytes(b)
             s = b.joinToString("") { "%02x".format(it) }
             prefs.edit().putString(KEY_SECRET, s).apply()
         }
