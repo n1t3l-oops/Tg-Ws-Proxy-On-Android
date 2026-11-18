@@ -65,7 +65,7 @@ def new_secret():
     return os.urandom(16).hex()
 
 
-def start(secret, port, dc_mode="dc4"):
+def start(secret, port, dc_mode=None):
     """Запускает прокси в фоновом потоке. Возвращает True, если запущен."""
     global _thread, _error
     if _thread is not None and _thread.is_alive():
@@ -76,12 +76,12 @@ def start(secret, port, dc_mode="dc4"):
     pc.host = "127.0.0.1"
     pc.port = int(port)
     pc.secret = secret
-    # Рекомендация Flowseal для диагностики проблем с медиа: сначала оставить только DC4.
-    # Если не помогает, переключиться в режим без переопределений DC -> IP.
-    pc.dc_redirects = (
-        parse_dc_ip_list(["4:149.154.167.220"])
-        if dc_mode == "dc4" else {}
-    )
+    # Restore the original working route configuration (DC2 + DC4).
+    # The DC4-only experiment caused connection failures on some networks.
+    pc.dc_redirects = parse_dc_ip_list([
+        "2:149.154.167.220",
+        "4:149.154.167.220",
+    ])
     _thread = threading.Thread(target=_worker, name="proxy", daemon=True)
     _thread.start()
     return True
