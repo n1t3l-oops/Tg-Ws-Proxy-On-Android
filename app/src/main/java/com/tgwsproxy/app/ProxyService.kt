@@ -66,7 +66,7 @@ class ProxyService : Service() {
         }.start()
     }
 
-    private fun routeLabel(): String = if (Config.dcMode(this) == "dc4") "DC4" else "авто"
+    private fun routeLabel(): String = "DC2 + DC4"
 
     private fun notification(message: String) =
         NotificationCompat.Builder(this, CHANNEL)
