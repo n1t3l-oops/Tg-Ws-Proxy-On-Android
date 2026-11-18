@@ -45,7 +45,7 @@ def _worker():
     _loop, _stop_ev = loop, stop_ev
     try:
         loop.run_until_complete(_run(stop_event=stop_ev))
-    except Exception as exc:  # например, порт занят
+    except Exception as exc:
         _error = repr(exc)
         logging.getLogger("tg-mtproto-proxy").error("Proxy crashed: %s", _error)
     finally:
@@ -65,7 +65,7 @@ def new_secret():
     return os.urandom(16).hex()
 
 
-def start(secret, port):
+def start(secret, port, dc_mode="dc4"):
     """Запускает прокси в фоновом потоке. Возвращает True, если запущен."""
     global _thread, _error
     if _thread is not None and _thread.is_alive():
@@ -76,7 +76,12 @@ def start(secret, port):
     pc.host = "127.0.0.1"
     pc.port = int(port)
     pc.secret = secret
-    pc.dc_redirects = parse_dc_ip_list(["2:149.154.167.220", "4:149.154.167.220"])
+    # Рекомендация Flowseal для диагностики проблем с медиа: сначала оставить только DC4.
+    # Если не помогает, переключиться в режим без переопределений DC -> IP.
+    pc.dc_redirects = (
+        parse_dc_ip_list(["4:149.154.167.220"])
+        if dc_mode == "dc4" else {}
+    )
     _thread = threading.Thread(target=_worker, name="proxy", daemon=True)
     _thread.start()
     return True
@@ -101,3 +106,8 @@ def last_error():
 
 def get_log():
     return "\n".join(_logs)
+
+
+def get_stats():
+    from proxy.stats import stats
+    return stats.summary()
