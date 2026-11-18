@@ -27,12 +27,12 @@ import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
 
 class MainActivity : Activity() {
-    private val page = Color.rgb(10, 13, 18)
-    private val card = Color.rgb(20, 25, 34)
-    private val alt = Color.rgb(27, 33, 44)
-    private val accent = Color.rgb(91, 220, 184)
-    private val muted = Color.rgb(145, 157, 174)
-    private val white = Color.rgb(240, 244, 249)
+    private val page = Color.rgb(8, 13, 27)
+    private val card = Color.argb(42, 190, 220, 255)
+    private val alt = Color.argb(32, 160, 190, 245)
+    private val accent = Color.rgb(135, 226, 238)
+    private val muted = Color.rgb(166, 180, 207)
+    private val white = Color.rgb(245, 248, 255)
     private val handler = Handler(Looper.getMainLooper())
 
     private lateinit var power: TextView
@@ -67,6 +67,7 @@ class MainActivity : Activity() {
     private fun panel() = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         background = rounded(card)
+        elevation = dp(7).toFloat()
         setPadding(dp(18), dp(16), dp(18), dp(16))
     }
     private fun heading(s: String) = txt(s, 12f, muted, true).apply {
@@ -142,26 +143,8 @@ class MainActivity : Activity() {
         })
         root.addView(connection)
 
-        root.addView(heading("МАРШРУТ МЕДИА"))
-        val route = panel()
-        route.addView(txt("Способ перенаправления", 14f, white, true))
-        route.addView(txt(
-            "Сначала проверьте рекомендованный DC4. Если медиа всё ещё загружаются нестабильно, попробуйте авто.",
-            12f, muted
-        ).apply { setPadding(0, dp(6), 0, dp(14)) })
-        val routeRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; background = rounded(Color.rgb(12, 16, 23), 14)
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-        }
-        dc4 = routeChoice("DC4"); auto = routeChoice("Авто")
-        routeRow.addView(dc4, LinearLayout.LayoutParams(0, dp(44), 1f))
-        routeRow.addView(auto, LinearLayout.LayoutParams(0, dp(44), 1f))
-        route.addView(routeRow)
-        routeInfo = txt("", 11f, muted).apply { setPadding(0, dp(10), 0, 0) }
-        route.addView(routeInfo); root.addView(route)
-        dc4.setOnClickListener { chooseRoute("dc4") }
-        auto.setOnClickListener { chooseRoute("auto") }
-
+        connection.addView(label("Маршрут узлов", 12f, muted).apply { setPadding(0, dp(10), 0, dp(3)) })
+        connection.addView(label("DC2 + DC4  •  исходная конфигурация", 13f, white, true))
         root.addView(heading("БЫСТРЫЕ ДЕЙСТВИЯ"))
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         actions.addView(action("Telegram", "Открыть прокси") { openTelegram() },
@@ -203,66 +186,6 @@ class MainActivity : Activity() {
         ).apply { setPadding(dp(2), dp(18), dp(2), 0) })
 
         scroll.addView(root); setContentView(scroll); updateRouteUi()
-    }
-
-    private fun routeChoice(value: String) = txt(value, 13f, white).apply {
-        gravity = Gravity.CENTER; isClickable = true; isFocusable = true
-    }
-    override fun onResume() {
-        super.onResume(); handler.removeCallbacks(ticker); handler.post(ticker)
-    }
-    override fun onPause() {
-        handler.removeCallbacks(ticker); super.onPause()
-    }
-
-    private fun refresh() {
-        val module = Python.getInstance().getModule("tgproxy_android")
-        running = module.callAttr("is_running").toBoolean()
-        val error = module.callAttr("last_error").toString()
-        dot.setTextColor(if (running) accent else Color.rgb(226, 164, 96))
-        state.text = when {
-            running -> "Прокси активен"
-            error.isNotEmpty() -> "Ошибка запуска"
-            else -> "Прокси выключен"
-        }
-        detail.text = when {
-            running -> "127.0.0.1:" + Config.PORT + " • локальное соединение"
-            error.isNotEmpty() -> error
-            else -> "Запустите прокси, чтобы подключить Telegram"
-        }
-        power.text = if (running) "ОСТАНОВИТЬ" else "ЗАПУСТИТЬ"
-        power.setTextColor(if (running) white else Color.rgb(8, 28, 24))
-        power.background = circle(if (running) Color.rgb(43, 116, 94) else accent)
-        stats.text = try { module.callAttr("get_stats").toString() }
-            catch (_: Exception) { "Статистика пока недоступна" }
-        if (showLogs) {
-            val content = module.callAttr("get_log").toString()
-            if (logs.text.toString() != content) {
-                logs.text = if (content.isBlank()) "Лог пока пуст." else content
-                logScroll.post { logScroll.fullScroll(View.FOCUS_DOWN) }
-            }
-        }
-        updateRouteUi()
-    }
-
-    private fun updateRouteUi() {
-        val useDc4 = Config.dcMode(this) == "dc4"
-        dc4.background = rounded(if (useDc4) Color.rgb(42, 103, 87) else Color.TRANSPARENT, 11)
-        auto.background = rounded(if (!useDc4) Color.rgb(42, 103, 87) else Color.TRANSPARENT, 11)
-        dc4.setTextColor(if (useDc4) white else muted)
-        auto.setTextColor(if (!useDc4) white else muted)
-        routeInfo.text = if (useDc4) "DC4: 4:149.154.167.220" else
-            "Авто: список DC → IP пустой, используются стандартные маршруты ядра."
-    }
-
-    private fun chooseRoute(mode: String) {
-        if (Config.dcMode(this) == mode) return
-        Config.setDcMode(this, mode); updateRouteUi()
-        if (running) {
-            ContextCompat.startForegroundService(this,
-                Intent(this, ProxyService::class.java).setAction(ProxyService.ACTION_RESTART))
-            Toast.makeText(this, "Маршрут изменён. Перезапуск прокси…", Toast.LENGTH_SHORT).show()
-        } else Toast.makeText(this, "Маршрут сохранён", Toast.LENGTH_SHORT).show()
     }
 
     private fun toggle() {
