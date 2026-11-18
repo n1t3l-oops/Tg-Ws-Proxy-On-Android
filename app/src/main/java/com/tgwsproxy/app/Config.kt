@@ -9,7 +9,7 @@ object Config {
     fun secret(ctx: Context): String {
         val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         var s = prefs.getString(KEY_SECRET, null)
-        if (s == null || s.length != 32) {
+        if (s == null || s.length != 32 || s.all { it == '0' }) {
             val b = ByteArray(16)
             SecureRandom().nextBytes(b)
             s = b.joinToString("") { "%02x".format(it) }
